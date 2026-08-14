@@ -17,6 +17,16 @@ assets/
   linktree-qr-400.png          # QR shown by the `contact` command
 ```
 
+## Third-party material
+
+`assets/fonts/Ac437_ATT_PC6300.ttf` comes from VileR's
+[Ultimate Oldschool PC Font Pack](https://int10h.org/oldschool-pc-fonts/).
+The font file is licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for attribution and
+source details. The license applies to that font file, not automatically to
+the rest of this repository.
+
 ## Local preview
 
 Serve the folder over HTTP (the page fetches `/assets/...` by absolute path):
