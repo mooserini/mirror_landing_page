@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "owner": "Tom Kenny",
+  "updated": "2026-08-13",
+  "work": [
+    {
+      "name": "The Resonant Mirror",
+      "blurb": "CRT/terminal landing page. Fake AT&T BIOS boot → C:/> shell.",
+      "status": "live",
+      "url": "https://www.getadongle.com"
+    },
+    {
+      "name": "Vesper",
+      "blurb": "Living CRT/weather web app evolving from the landing page.",
+      "status": "in-beta",
+      "url": ""
+    }
+  ],
+  "links": [
+    {
+      "label": "Linktree",
+      "url": "https://linktr.ee/mooserini"
+    }
+  ]
+}
