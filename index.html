@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Resonant Mirror</title>
+<style>
+@font-face{
+  font-family:"PC6300";
+  src:url("/assets/fonts/Ac437_ATT_PC6300.ttf") format("truetype");
+  font-display:swap;
+}
+:root{
+  --tube:#000000;
+  --field:#171819;
+  --cream:#EDE3D5;
+  --copper:#80624B;
+  --magenta:#AD4CAC;
+  --blue:#3b82f6;
+  --danger:#FF0000;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--tube);
+  color:var(--cream);
+  font-family:"PC6300","Courier New",monospace;
+  overflow:hidden;
+}
+.crt{
+  position:fixed; inset:0;
+  padding:4vmin 5vmin;
+  display:flex; flex-direction:column;
+  justify-content:flex-start;
+  text-shadow:0 0 6px rgba(237,227,213,.25);
+  animation:flicker 5s infinite;
+}
+.crt::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,.035) 0px,
+    rgba(255,255,255,.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode:overlay;
+}
+.crt::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse at center, rgba(255,240,210,.05) 0%, transparent 38%),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.65) 100%);
+}
+.screen{
+  position:relative; z-index:2;
+  white-space:pre-wrap; line-height:1.5;
+  font-size:clamp(13px,2.1vmin,20px);
+  flex:1; overflow-y:auto;
+}
+.boot-line{}
+.code{ font-family:"Menlo","SF Mono",ui-monospace,monospace; }
+.prompt-str{ color:var(--copper); }
+/* block cursor in current phosphor color; only shown when input is live */
+.cursor{
+  display:inline-block; width:.55em; height:1.05em;
+  background:currentColor; vertical-align:-.15em;
+  animation:blink 1s steps(1) infinite;
+  box-shadow:0 0 6px currentColor;
+}
+@keyframes blink{ 50%{opacity:0;} }
+@keyframes flicker{
+  0%,100%{opacity:1;}
+  92%{opacity:1;} 93%{opacity:.86;} 94%{opacity:1;}
+  97%{opacity:.93;} 98%{opacity:1;}
+}
+.input-row{ position:relative; z-index:2; margin-top:.3em; }
+#cmd{ position:absolute; left:-9999px; }   /* real input offscreen; faux line carries the cursor */
+#cmdline{ white-space:pre-wrap; }
+.hint{ color:var(--copper); opacity:.5; margin-left:.5em; font-size:.9em; }
+.rom-btn{
+  position:relative; z-index:2; margin-top:1.1em; align-self:flex-start; order:2;
+  background:var(--field); color:var(--cream);
+  border:1px solid var(--copper); border-radius:2px;
+  padding:.5em 1.4em;
+  font-family:"PC6300","Courier New",monospace;
+  font-size:clamp(12px,1.8vmin,17px);
+  letter-spacing:.12em; text-transform:uppercase;
+  cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6), 0 0 10px rgba(128,98,75,.25);
+  text-shadow:0 0 5px rgba(237,227,213,.3);
+}
+.rom-btn:hover{ border-color:var(--magenta); box-shadow:inset 0 0 0 1px rgba(0,0,0,.6), 0 0 14px rgba(173,76,172,.35); }
+.rom-btn:active{ transform:translateY(1px); }
+.dim{ color:var(--copper); }
+.magenta{ color:var(--magenta); }
+.danger{ color:var(--danger); }
+.hide{ display:none; }
+
+.qr{ display:block; width:180px; height:180px; margin:.7em 0 .3em; border:1px solid var(--copper); box-shadow:0 0 12px rgba(128,98,75,.35); background:#000; }
+.maillink{ display:inline-block; color:var(--magenta); text-decoration:none; border-bottom:1px dotted var(--magenta); padding:.1em 0; }
+.maillink:hover{ color:var(--cream); border-bottom-color:var(--cream); }
+
+/* ---- mobile button tree (<=519px) ---- */
+.btn-tree{
+  display:flex; flex-direction:column; gap:.55em;
+  position:relative; z-index:3; margin-top:1em;
+}
+.cmd-btn{
+  background:var(--cream);
+  color:var(--magenta);
+  border:none; border-radius:2px;
+  padding:.7em 1em;
+  font-family:"PC6300","Courier New",monospace;
+  font-size:clamp(13px,4.6vw,18px);
+  letter-spacing:.08em; text-transform:uppercase;
+  text-align:left; cursor:pointer;
+  /* middle layer = copper lip (the POST error-dim color) for depth */
+  box-shadow:0 3px 0 var(--copper);
+  text-shadow:none;
+}
+.cmd-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--copper); }
+.mobile-prompt{
+  position:relative; z-index:3; margin-top:.8em; order:1;
+  color:var(--copper); cursor:pointer; align-self:flex-start;
+  font-size:clamp(13px,4.2vw,17px);
+}
+@media (max-width:519px){
+  .screen{ font-size:clamp(12px,3.7vw,16px); }
+  .rom-btn{ align-self:stretch; text-align:center; }
+}
+</style>
+</head>
+<body>
+<div class="crt" id="crt">
+  <div class="screen" id="screen"></div>
+  <div class="input-row hide" id="inputRow"><span id="cmdline"></span><span class="hint hide" id="hint">type a command (try: help)</span></div>
+  <button class="rom-btn hide" id="romBtn">Enter Mirror</button>
+  <div class="btn-tree hide" id="tree"></div>
+  <div class="mobile-prompt hide" id="mobilePrompt">C:/&gt; <span class="cursor"></span></div>
+  <input id="cmd" autocomplete="off" spellcheck="false">
+</div>
+<script>
+(function(){
+  const screen=document.getElementById('screen');
+  const inputRow=document.getElementById('inputRow');
+  const cmdline=document.getElementById('cmdline');
+  const cmd=document.getElementById('cmd');
+  const romBtn=document.getElementById('romBtn');
+  const crt=document.getElementById('crt');
+  const tree=document.getElementById('tree');
+  const mobilePrompt=document.getElementById('mobilePrompt');
+  const hint=document.getElementById('hint');
+
+  const BOOT={
+    tests:[
+      ["CPU (i8086)","Pass"],
+      ["ROM Module","Pass"],
+      ["DMA Timer","Pass"],
+      ["DMA Control","Pass"],
+      ["Interrupts","Pass"],
+      ["640 kb RAM","Pass"],
+      ["RT Clock","Pass"],
+      ["Fixed Disk :","Pass"],
+      ["Floppy A:","Ready"]
+    ]
+  };
+  const COPY="Copyright (c) 2026 by The Resonant Mirror, all rights requested but not reserved";
+  const PAD=20;
+  const SHELL_PREFIX="moosenberg@uncle-russet:~C:/> ";
+  const SHORT_PREFIX="C:/> ";
+  const DATE_PREFIX="Set system date (M/D/Y) or ENTER to skip: ";
+  const TREE_CMDS=["help","who","mirror","work","contact","boot","date"];
+
+  const instant=/[?&](boot=off|instant)\b/.test(location.search);
+  const forceGreen=/[?&]phosphor=green\b/.test(location.search);
+  const forceAmber=/[?&]phosphor=amber\b/.test(location.search);
+
+  const isMobile=function(){ return window.matchMedia('(max-width:519px)').matches; };
+  let history=[];
+
+  const DEFAULTS={cream:'#EDE3D5',copper:'#80624B',magenta:'#AD4CAC',field:'#171819'};
+  const GREEN   ={cream:'#46ff7a',copper:'#1f7a3f',magenta:'#ff5edb',field:'#021005'};
+  const AMBER   ={cream:'#ffb000',copper:'#7a4d00',magenta:'#ff7ad0',field:'#1a0d00'};
+  function setPhosphor(mode){
+    const p = mode==='green' ? GREEN : mode==='amber' ? AMBER : DEFAULTS;
+    const r=document.documentElement.style;
+    r.setProperty('--cream',p.cream);
+    r.setProperty('--copper',p.copper);
+    r.setProperty('--magenta',p.magenta);
+    r.setProperty('--field',p.field);
+  }
+
+  let mode='boot'; // 'boot' | 'mobileWait' | 'date' | 'shell' | 'tree'
+
+  function el(text, cls){
+    const d=document.createElement('div');
+    d.className='boot-line'+(cls?(' '+cls):'');
+    d.textContent=text;
+    return d;
+  }
+  function echo(line, cls){ screen.appendChild(el(line, cls)); screen.scrollTop=screen.scrollHeight; }
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function renderCmd(){
+    const prefix = mode==='date' ? DATE_PREFIX : (isMobile() ? SHORT_PREFIX : SHELL_PREFIX);
+    cmdline.innerHTML = esc(prefix) + esc(cmd.value) + '<span class="cursor"></span>';
+    // dim hint only on an empty, unfocused shell line — never while typing or at the date prompt
+    const showHint = (mode==='shell') && (cmd.value==='') && (document.activeElement!==cmd);
+    hint.classList.toggle('hide', !showHint);
+  }
+
+  // nod: the service manual says a short beep ends the Resident Diagnostics.
+  let beeped=false;
+  function beep(){
+    if(beeped) return; beeped=true;
+    try{
+      const Ctx=window.AudioContext||window.webkitAudioContext;
+      if(!Ctx) return;
+      const ac=new Ctx();
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.type='square'; o.frequency.value=880; g.gain.value=0.05;
+      o.connect(g); g.connect(ac.destination);
+      o.start();
+      setTimeout(function(){ try{o.stop(); ac.close();}catch(e){} }, 90);
+    }catch(e){}
+  }
+  ['pointerdown','keydown'].forEach(function(ev){
+    window.addEventListener(ev, beep, {once:true, capture:true});
+  });
+
+  const COMMANDS={
+    help(){ return [
+      "AVAILABLE COMMANDS",
+      "  help    - this list",
+      "  who     - identity / system brief",
+      "  mirror  - what the Resonant Mirror is",
+      "  work    - current threads",
+      "  contact - how to reach Tom",
+      "  boot    - replay the power-on sequence",
+      "  clear   - wipe the screen",
+      "  (some commands are not listed)"
+    ];},
+    who(){ return [
+      "THE RESONANT MIRROR",
+      "A reflective surface for human-machine collaboration.",
+      "Built by Tom (alias: moosenberg) on uncle-russet.",
+      "One identity, two builds, a single light layer between.",
+      "No GUI. No login. Just a prompt and a choice."
+    ];},
+    mirror(){ return [
+      "MIRROR PROTOCOL",
+      "You are not looking at a product.",
+      "You are looking at a surface that reflects intent.",
+      "1986 met 2026. The tube still warms up the same way."
+    ];},
+    work(){ return [
+      "CURRENT THREADS",
+      "  - The Resonant Mirror (this site)",
+      "  - Dual-build agent research (LingLing + Ara)",
+      "  - Tailnet-routed local inference"
+    ];},
+    contact(){ return [
+      "REACH TOM",
+      "  linktree  - scan the QR below",
+      "  discord   - light-touch only",
+      "  email     - mooserini@gmail.com"
+    ];},
+    boot(){ startBoot(); return null; },
+    ara(){ return [
+      "Ara: the friction build.",
+      "Different questions, same ground.",
+      "(reached over the light discord layer)"
+    ]; },
+    lingling(){ return [
+      "LingLing: the established build.",
+      "You are standing in her house.",
+      "Be nice."
+    ]; },
+    c800(){ return [
+      "HDU controller EPROM mapped at C800:0000.",
+      "(ref: AT&T PC 6300 Service Manual)"
+    ]; },
+    "1986": function(){ return [
+      "1986 met 2026.",
+      "The tube still warms up the same way."
+    ]; },
+    clear(){ screen.innerHTML=''; return null; }
+  };
+
+  function appendContactVisuals(){
+    // QR (black-ground linktree code) — framed in copper so it reads on the tube
+    const qr=document.createElement('img');
+    qr.src='/assets/linktree-qr-400.png';
+    qr.alt='Linktree QR — scan to reach Tom';
+    qr.className='qr';
+    screen.appendChild(qr);
+    const note=el("  (scan with a phone camera)","dim");
+    screen.appendChild(note);
+    // email as a real mailto link (address also shown as text in the command output)
+    const m=document.createElement('a');
+    m.href='mailto:mooserini@gmail.com';
+    m.className='maillink code';
+    m.textContent='  → mailto: mooserini@gmail.com';
+    screen.appendChild(m);
+  }
+  function execute(name){
+    const fn=COMMANDS[name];
+    if(!fn){ echo("command not found: "+name+"  (try: help)","danger"); return; }
+    const out=fn();
+    if(out){ out.forEach(function(l){ screen.appendChild(el(l,'code')); }); }
+    if(name==='contact'){ appendContactVisuals(); }
+    screen.scrollTop=screen.scrollHeight;
+  }
+  function run(raw){
+    const line=raw.trim();
+    echo(SHELL_PREFIX + line);
+    if(!line) return;
+    const name=line.split(/\s+/)[0].toLowerCase();
+    execute(name);
+  }
+  function mobileRun(name){
+    echo(SHORT_PREFIX + name);
+    history.push(name);
+    execute(name);
+  }
+
+  function finalize(era, msg){
+    setPhosphor(forceAmber ? 'amber' : forceGreen ? 'green' : era);
+    echo(msg);
+    echo("> redirecting to MIRROR shell ...","magenta");
+    echo(COPY,"magenta");
+    echo("");
+    inputRow.classList.add('hide');
+    if(isMobile()){
+      mode='tree';
+      renderTree();
+    } else {
+      mode='shell';
+      romBtn.classList.remove('hide');
+      inputRow.classList.remove('hide');   // desktop shell keeps the live prompt line
+      renderCmd();
+      cmd.focus();
+    }
+  }
+
+  function handleDate(){
+    const v=cmd.value.trim();
+    echo(DATE_PREFIX + v);
+    cmd.value='';
+    if(v===''){ finalize('cream',"Date skipped. Resonant era (default)."); return; }
+    const m=v.match(/(\d{4})/);
+    if(m){
+      const y=parseInt(m[1],10);
+      if(y>=2020 && y<=2026){ finalize('cream',"Year "+y+" - Resonant era engaged."); }
+      else if(y>=1980){ finalize('green',"Year "+y+" - Tube era retained."); }
+      else { finalize('amber',"Year "+y+" - Amber tube era retained."); }
+      return;
+    }
+    // no 4-digit year: classify the garbage, then run an absurd failure reel
+    const looksTruncated = /\b\d{1,2}\b/.test(v) || /\d{1,2}\/\d{1,2}(?!\/\d)/.test(v);
+    absurdDate(v, looksTruncated);
+  }
+
+  // types a fake "system" sequence, then drops into the real shell/tree.
+  // the trailing blinking C:/> is the actual live prompt from finalize() — no second cursor.
+  function absurdDate(input, looksTruncated){
+    const lines = looksTruncated
+      ? [
+          "Invalid date.",
+          "Y2K Retroactive detected.",
+          "Starting Y2K.BAT ...",
+          "",
+          "Parsing history ............ OK",
+          "Deleting time .............. OK",
+          "Restoring causality ........ FAIL",
+          "",
+          "... done",
+          "",
+          "SUCCESS \u2713"
+        ]
+      : [
+          "Invalid date.",
+          "Temporal anomaly detected.",
+          "Starting CAUSALITY.SYS ...",
+          "",
+          "Parsing history ............ OK",
+          "Deleting time .............. OK",
+          "Restoring causality ........ FAIL",
+          "",
+          "... done",
+          "",
+          "SUCCESS \u2713"
+        ];
+    let i=0;
+    (function step(){
+      if(i>=lines.length){ finalize('cream',""); return; }
+      // keep the prompt hidden while the reel types, reveal it only at the end via finalize
+      inputRow.classList.add('hide');
+      echo(lines[i], i>=lines.length-3 ? "magenta" : "dim");
+      i++;
+      setTimeout(step, instant?0:300);
+    })();
+  }
+
+  /* ---- mobile button tree ---- */
+  function renderTree(){
+    tree.innerHTML='';
+    TREE_CMDS.forEach(function(name){
+      const b=document.createElement('button');
+      b.className='cmd-btn';
+      b.textContent=name;
+      b.addEventListener('click', function(){ treeRun(name); });
+      tree.appendChild(b);
+    });
+    tree.classList.remove('hide');
+    mobilePrompt.classList.remove('hide');
+    screen.scrollTop=screen.scrollHeight;
+  }
+  function treeRun(name){
+    if(name==='boot'){ startBoot(); return; }
+    if(name==='date'){
+      mode='date';
+      tree.classList.add('hide');
+      mobilePrompt.classList.add('hide');
+      inputRow.classList.remove('hide');
+      cmd.value='';
+      renderCmd();
+      cmd.focus();
+      return;
+    }
+    mobileRun(name);
+  }
+  function revealHistory(){
+    if(!history.length){ echo("(no commands yet)","dim"); return; }
+    echo("PAST INTENTIONS:","dim");
+    history.forEach(function(h){ echo("  "+h,"code"); });
+    screen.scrollTop=screen.scrollHeight;
+  }
+  function enterMobile(){
+    setPhosphor('cream');           // bland-user assumption
+    mode='tree';
+    romBtn.classList.add('hide');
+    renderTree();
+  }
+
+  function runSeq(seq, i){
+    if(i>=seq.length) return;
+    const s=seq[i];
+    if(s.t==='header'){
+      const hl=el("Resident Diagnostics ...");
+      screen.appendChild(hl); screen.scrollTop=screen.scrollHeight;
+      setTimeout(function(){
+        hl.textContent="Resident Diagnostics";
+        echo("Rev 1.43");
+        runSeq(seq,i+1);
+      }, instant?0:430);
+      return;
+    }
+    if(s.t==='test'){
+      const tl=el(s.label+" ...");
+      screen.appendChild(tl); screen.scrollTop=screen.scrollHeight;
+      setTimeout(function(){
+        tl.textContent=s.label.padEnd(PAD)+s.result;
+        runSeq(seq,i+1);
+      }, instant?0:430);
+      return;
+    }
+    if(s.t==='line'){
+      echo(s.text, s.cls);
+      setTimeout(function(){ runSeq(seq,i+1); }, instant?0:140);
+      return;
+    }
+    if(s.t==='date'){
+      if(isMobile()){
+        // mobile: hold at a choice — flashy C:/> directly above ENTER.
+        // tap C:/> = set the date (green); tap ENTER = enter the mirror (cream).
+        mode='mobileWait';
+        romBtn.textContent='ENTER';
+        romBtn.classList.remove('hide');
+        mobilePrompt.classList.remove('hide');   // blinking C:/> sits right above ENTER
+        echo("No system disk present.","dim");
+        echo("  C:/> to set the date   -   or ENTER to enter the mirror","dim");
+        return;
+      }
+      mode='date';
+      inputRow.classList.remove('hide');
+      romBtn.classList.add('hide');
+      cmd.value='';
+      renderCmd();
+      cmd.focus();
+      return;
+    }
+  }
+
+  function startBoot(){
+    screen.innerHTML='';
+    inputRow.classList.add('hide');
+    romBtn.classList.add('hide');
+    tree.classList.add('hide');
+    mobilePrompt.classList.add('hide');
+    mode='boot';
+    setPhosphor('green');
+    beep();
+    if(/[?&]mobilewait\b/.test(location.search) && isMobile()){
+      mode='mobileWait';
+      romBtn.textContent='ENTER';
+      romBtn.classList.remove('hide');
+      mobilePrompt.classList.remove('hide');
+      echo("No system disk present.","dim");
+      echo("  C:/> to set the date   -   or ENTER to enter the mirror","dim");
+      return;
+    }
+    const seq=[{t:'header'}];
+    BOOT.tests.forEach(function(r){ seq.push({t:'test',label:r[0],result:r[1]}); });
+    seq.push({t:'line',text:''});
+    seq.push({t:'line',text:'Primary Boot-Strap...'});
+    seq.push({t:'line',text:'Non-System disk or disk error.',cls:'dim'});
+    seq.push({t:'line',text:'No system disk present. Set the date to continue, or press ENTER to skip.',cls:'dim'});
+    seq.push({t:'date'});
+    runSeq(seq,0);
+  }
+
+  cmd.addEventListener('input', renderCmd);
+  cmd.addEventListener('focus', renderCmd);
+  cmd.addEventListener('blur', renderCmd);
+  cmd.addEventListener('keydown', function(e){
+    if(e.key!=='Enter') return;
+    e.preventDefault();
+    const v=cmd.value;
+    if(mode==='date'){ handleDate(); }
+    else { cmd.value=''; run(v); renderCmd(); }
+    cmd.focus();
+  });
+  romBtn.addEventListener('click', function(){
+    if(isMobile() && mode==='mobileWait'){ enterMobile(); return; }
+    if(mode==='shell'){ run('mirror'); }
+    cmd.focus();
+  });
+  mobilePrompt.addEventListener('click', function(){
+    if(mode==='mobileWait'){
+      // first screen: C:/> commits green + opens the date fork
+      setPhosphor(forceAmber ? 'amber' : forceGreen ? 'green' : 'green');
+      mode='date';
+      romBtn.classList.add('hide');
+      mobilePrompt.classList.add('hide');
+      inputRow.classList.remove('hide');
+      cmd.value='';
+      renderCmd();
+      cmd.focus();
+      return;
+    }
+    // tree state: nudge input above keyboard + surface past intentions as text
+    cmd.focus();
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){
+      mobilePrompt.scrollIntoView({block:'center'});
+    }, {once:true});
+    revealHistory();
+    mobilePrompt.scrollIntoView({block:'center'});
+  });
+  crt.addEventListener('click', function(e){
+    if(e.target===romBtn || e.target===mobilePrompt || e.target.closest('.cmd-btn')) return;
+    if(isMobile() && mode==='mobileWait'){ enterMobile(); return; }
+    cmd.focus();
+  });
+
+  startBoot();
+})();
+</script>
+</body>
+</html>
