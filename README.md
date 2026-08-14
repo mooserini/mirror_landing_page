@@ -15,7 +15,7 @@ index.html                     # page shell (HTML + CSS + primary JS inline)
 assets/
   fonts/Ac437_ATT_PC6300.ttf   # PC6300 display font (headers/chrome)
   linktree-qr-400.png          # QR shown by the `contact` command
-  projects-core.js             # schema guard + dependency-free line renderer
+  projects-core.v1.js          # schema guard + dependency-free line renderer
   projects.json                # public work and links manifest
 tests/
   projects-core.test.js        # Node built-in contract tests
@@ -26,7 +26,9 @@ tests/
 The `work` command fetches `/assets/projects.json`, accepts only
 `schemaVersion: 1`, and renders validated project and link fields. Unsupported,
 missing, malformed, or empty manifests fail quietly to the static work list in
-`index.html`; the shell and all other commands continue to work.
+`index.html`; the shell and all other commands continue to work. The helper's
+filename is versioned because the public edge may cache JavaScript for a day;
+bump that filename when its runtime contract changes.
 
 The JSON remains a deliberately small public boundary. It describes projects
 without publishing credentials, private endpoints, IP addresses, ports, or

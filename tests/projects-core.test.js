@@ -6,7 +6,7 @@ const path = require('node:path');
 const {
   parseProjectManifest,
   projectLines
-} = require('../assets/projects-core.js');
+} = require('../assets/projects-core.v1.js');
 
 const fallback = [
   'CURRENT THREADS',
@@ -123,7 +123,7 @@ test('projectLines returns an independent static fallback for absent or empty ma
 
 test('index loads and consumes the validated manifest with a static fallback', () => {
   const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const coreScript = '<script src="/assets/projects-core.js"></script>';
+  const coreScript = '<script src="/assets/projects-core.v1.js"></script>';
   const inlineScript = '<script>\n(function(){';
 
   assert.ok(index.includes(coreScript));
