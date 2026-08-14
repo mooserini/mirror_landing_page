@@ -140,6 +140,7 @@ body{
   <div class="mobile-prompt hide" id="mobilePrompt">C:/&gt; <span class="cursor"></span></div>
   <input id="cmd" autocomplete="off" spellcheck="false">
 </div>
+<script src="/assets/projects-core.js"></script>
 <script>
 (function(){
   const screen=document.getElementById('screen');
@@ -171,6 +172,34 @@ body{
   const SHORT_PREFIX="C:/> ";
   const DATE_PREFIX="Set system date (M/D/Y) or ENTER to skip: ";
   const TREE_CMDS=["help","who","mirror","work","contact","boot","date"];
+  const STATIC_WORK_LINES=[
+    "CURRENT THREADS",
+    "  - The Resonant Mirror (this site)",
+    "  - Dual-build agent research (LingLing + Ara over A2A)",
+    "  - Tailnet-routed local inference (private authenticated mesh)"
+  ];
+  let projectManifest=null;
+
+  function loadProjectManifest(){
+    const projectsApi=window.ResonantProjects;
+    if(!projectsApi || typeof projectsApi.parseProjectManifest!=='function' || typeof fetch!=='function') return;
+    fetch('/assets/projects.json', {cache:'no-cache'})
+      .then(function(response){
+        if(!response.ok) throw new Error('projects.json '+response.status);
+        return response.json();
+      })
+      .then(function(data){
+        projectManifest=ResonantProjects.parseProjectManifest(data);
+      })
+      .catch(function(){ projectManifest=null; });
+  }
+
+  function currentWorkLines(){
+    const projectsApi=window.ResonantProjects;
+    if(!projectsApi || typeof projectsApi.projectLines!=='function') return STATIC_WORK_LINES.slice();
+    try{ return ResonantProjects.projectLines(projectManifest, STATIC_WORK_LINES); }
+    catch(_error){ return STATIC_WORK_LINES.slice(); }
+  }
 
   const instant=/[?&](boot=off|instant)\b/.test(location.search);
   const forceGreen=/[?&]phosphor=green\b/.test(location.search);
@@ -255,12 +284,7 @@ body{
       "You are looking at a surface that reflects intent.",
       "1986 met 2026. The tube still warms up the same way."
     ];},
-    work(){ return [
-      "CURRENT THREADS",
-      "  - The Resonant Mirror (this site)",
-      "  - Dual-build agent research (LingLing + Ara over A2A)",
-      "  - Tailnet-routed local inference (private authenticated mesh)"
-    ];},
+    work(){ return currentWorkLines(); },
     contact(){ return [
       "REACH TOM",
       "  linktree  - scan the QR below",
@@ -565,6 +589,7 @@ body{
     cmd.focus();
   });
 
+  loadProjectManifest();
   startBoot();
 })();
 </script>
